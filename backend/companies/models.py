@@ -1,5 +1,4 @@
 from django.db import models
-from django.conf import settings
 
 
 class Company(models.Model):
@@ -10,7 +9,6 @@ class Company(models.Model):
         REFERRAL = '추천', '추천'
         ETC = '기타', '기타'
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='companies')
     company_name = models.CharField(max_length=200)
     position = models.CharField(max_length=200)
     source = models.CharField(max_length=20, choices=Source.choices, default=Source.ETC)

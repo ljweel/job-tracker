@@ -1,16 +1,3 @@
-<script setup>
-import { useAuthStore } from '@/stores/auth'
-import { useRouter } from 'vue-router'
-
-const auth = useAuthStore()
-const router = useRouter()
-
-function handleLogout() {
-  auth.logout()
-  router.push('/login')
-}
-</script>
-
 <template>
   <nav class="navbar">
     <div class="nav-inner">
@@ -19,7 +6,6 @@ function handleLogout() {
         <router-link to="/">대시보드</router-link>
         <router-link to="/companies">회사 관리</router-link>
         <router-link to="/resumes">이력서 관리</router-link>
-        <button class="btn btn-secondary" @click="handleLogout">로그아웃</button>
       </div>
     </div>
   </nav>
