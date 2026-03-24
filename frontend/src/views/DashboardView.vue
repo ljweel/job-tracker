@@ -19,6 +19,16 @@ const statusCounts = computed(() => {
 
 const totalCount = computed(() => companies.value.length)
 
+const recentCompanies = computed(() => {
+  return [...companies.value]
+    .sort((a, b) => {
+      const dateA = a.last_stage_date || a.first_stage_date || ''
+      const dateB = b.last_stage_date || b.first_stage_date || ''
+      return dateB.localeCompare(dateA)
+    })
+    .slice(0, 10)
+})
+
 function formatSupportPeriod(company) {
   const start = company.first_stage_date
   const end = company.last_stage_date
@@ -67,7 +77,7 @@ function formatSupportPeriod(company) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in companies.slice(0, 5)" :key="c.id">
+          <tr v-for="c in recentCompanies" :key="c.id">
             <td>
               <router-link :to="`/companies/${c.id}`">{{ c.company_name }}</router-link>
             </td>

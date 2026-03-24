@@ -11,8 +11,9 @@ onMounted(async () => {
 })
 
 const filtered = computed(() => {
-  if (!filterStatus.value) return companies.value
-  return companies.value.filter((c) => c.status === filterStatus.value)
+  const sorted = [...companies.value].sort((a, b) => a.id - b.id)
+  if (!filterStatus.value) return sorted
+  return sorted.filter((c) => c.status === filterStatus.value)
 })
 
 async function deleteCompany(id) {
