@@ -54,7 +54,7 @@ class CompanyStage(models.Model):
         REJECTED = '불합격', '불합격'
 
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='stages')
-    resume = models.ForeignKey('resumes.ResumeEvent', on_delete=models.SET_NULL, null=True, blank=True, related_name='stages')
+    documents = models.ManyToManyField('resumes.ResumeEvent', blank=True, related_name='stages')
     stage = models.JSONField(default=list)
     method = models.CharField(max_length=10, choices=Method.choices)
     date = models.DateField()

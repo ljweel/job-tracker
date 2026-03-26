@@ -15,23 +15,29 @@ const form = ref({
   date: '',
   result: '진행중',
   memo: '',
-  resume: null,
 })
 
 const stageOptions = ['서류', '코테', '커피챗', '면접', '과제']
 const stageEntries = ref([{ id: 1, stage: '서류' }])
 let stageEntrySeq = 2
 
-// 이력서 관련
-const resumes = ref([])
-const showResumeForm = ref(false)
-const resumeForm = ref({ label: '', modified_date: '' })
-const resumePdf = ref(null)
-const resumeError = ref('')
+// 서류 관련
+const allDocuments = ref([])
+const selectedDocs = ref({ '이력서': null, '포트폴리오': null, '자기소개서': null })
+const docTypeOptions = ['이력서', '포트폴리오', '자기소개서']
+
+const showDocForm = ref(false)
+const docForm = ref({ doc_type: '이력서', label: '', modified_date: '' })
+const docPdf = ref(null)
+const docError = ref('')
 
 const hasDocument = computed(() => {
   return stageEntries.value.some((entry) => entry.stage === '서류')
 })
+
+function docsByType(type) {
+  return allDocuments.value.filter((d) => d.doc_type === type)
+}
 
 function normalizeStageList(stageValue) {
   const expand = (value) => {
@@ -59,14 +65,25 @@ onMounted(async () => {
   if (props.initial) {
     const stageList = normalizeStageList(props.initial.stage)
     stageEntries.value = stageList.map((stage) => ({ id: stageEntrySeq++, stage }))
-    form.value = { ...props.initial }
+    form.value = {
+      stage: props.initial.stage,
+      method: props.initial.method,
+      date: props.initial.date,
+      result: props.initial.result,
+      memo: props.initial.memo,
+    }
+    if (props.initial.documents_detail) {
+      for (const doc of props.initial.documents_detail) {
+        selectedDocs.value[doc.doc_type] = doc.id
+      }
+    }
   }
-  await loadResumes()
+  await loadDocuments()
 })
 
-async function loadResumes() {
+async function loadDocuments() {
   const res = await api.get('/resumes/')
-  resumes.value = res.data
+  allDocuments.value = res.data
 }
 
 function addStageEntry() {
@@ -78,40 +95,44 @@ function removeStageEntry(id) {
   stageEntries.value = stageEntries.value.filter((entry) => entry.id !== id)
 }
 
-function onResumePdfChange(e) {
-  resumePdf.value = e.target.files[0] || null
+function onDocPdfChange(e) {
+  docPdf.value = e.target.files[0] || null
 }
 
-async function handleAddResume() {
-  resumeError.value = ''
+async function handleAddDoc() {
+  docError.value = ''
   const fd = new FormData()
-  fd.append('label', resumeForm.value.label)
-  fd.append('modified_date', resumeForm.value.modified_date)
-  if (resumePdf.value) {
-    fd.append('pdf_file', resumePdf.value)
+  fd.append('doc_type', docForm.value.doc_type)
+  fd.append('label', docForm.value.label)
+  fd.append('modified_date', docForm.value.modified_date)
+  if (docPdf.value) {
+    fd.append('pdf_file', docPdf.value)
   }
   try {
     const res = await api.post('/resumes/', fd)
-    await loadResumes()
-    form.value.resume = res.data.id
-    showResumeForm.value = false
-    resumeForm.value = { label: '', modified_date: '' }
-    resumePdf.value = null
+    await loadDocuments()
+    selectedDocs.value[res.data.doc_type] = res.data.id
+    showDocForm.value = false
+    docForm.value = { doc_type: '이력서', label: '', modified_date: '' }
+    docPdf.value = null
   } catch (e) {
     const data = e.response?.data
-    resumeError.value = data ? Object.values(data).flat().join(' ') : '이력서 등록에 실패했습니다.'
+    docError.value = data ? Object.values(data).flat().join(' ') : '서류 등록에 실패했습니다.'
   }
 }
 
 function handleSubmit() {
   const selectedStages = stageEntries.value.map((entry) => entry.stage)
+  const documentIds = selectedStages.includes('서류')
+    ? Object.values(selectedDocs.value).filter((id) => id != null)
+    : []
   const data = {
     stage: selectedStages,
     method: form.value.method,
     date: form.value.date,
     result: form.value.result,
     memo: form.value.memo,
-    resume: selectedStages.includes('서류') ? form.value.resume : null,
+    document_ids: documentIds,
   }
   emit('save', data)
 }
@@ -137,35 +158,44 @@ function handleSubmit() {
           </div>
         </div>
 
-        <!-- 서류 선택 시 이력서 선택 영역 -->
+        <!-- 서류 선택 시 종류별 서류 선택 -->
         <div v-if="hasDocument" class="form-group">
-          <label>제출 이력서</label>
-          <div class="resume-select-area">
-            <select v-model="form.resume">
-              <option :value="null">선택 안 함</option>
-              <option v-for="r in resumes" :key="r.id" :value="r.id">{{ r.label }}</option>
-            </select>
-            <button type="button" class="btn btn-secondary btn-sm" @click="showResumeForm = !showResumeForm">
-              {{ showResumeForm ? '취소' : '+ 이력서 추가' }}
-            </button>
+          <label>제출 서류</label>
+          <div class="doc-select-list">
+            <div v-for="dt in docTypeOptions" :key="dt" class="doc-select-row">
+              <span class="doc-type-label">{{ dt }}</span>
+              <select v-model="selectedDocs[dt]">
+                <option :value="null">선택 안 함</option>
+                <option v-for="d in docsByType(dt)" :key="d.id" :value="d.id">{{ d.label }}</option>
+              </select>
+            </div>
           </div>
+          <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" @click="showDocForm = !showDocForm">
+            {{ showDocForm ? '취소' : '+ 새 서류 등록' }}
+          </button>
 
-          <!-- 인라인 이력서 등록 폼 -->
-          <div v-if="showResumeForm" class="inline-resume-form">
+          <!-- 인라인 서류 등록 폼 -->
+          <div v-if="showDocForm" class="inline-doc-form">
             <div class="form-group">
-              <label>버전명 / 라벨</label>
-              <input v-model="resumeForm.label" required placeholder="예: v3 - 백엔드 강조" />
+              <label>서류 종류</label>
+              <select v-model="docForm.doc_type">
+                <option v-for="dt in docTypeOptions" :key="dt">{{ dt }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>제목</label>
+              <input v-model="docForm.label" placeholder="미입력 시 파일명으로 자동 설정" />
             </div>
             <div class="form-group">
               <label>수정 날짜</label>
-              <input v-model="resumeForm.modified_date" type="date" required />
+              <input v-model="docForm.modified_date" type="date" required />
             </div>
             <div class="form-group">
               <label>PDF 파일</label>
-              <input type="file" accept=".pdf" @change="onResumePdfChange" />
+              <input type="file" accept=".pdf" @change="onDocPdfChange" />
             </div>
-            <p v-if="resumeError" class="error">{{ resumeError }}</p>
-            <button type="button" class="btn btn-primary btn-sm" @click="handleAddResume">이력서 등록</button>
+            <p v-if="docError" class="error">{{ docError }}</p>
+            <button type="button" class="btn btn-primary btn-sm" @click="handleAddDoc">서류 등록</button>
           </div>
         </div>
 
@@ -234,12 +264,24 @@ function handleSubmit() {
   gap: 8px;
   margin-top: 8px;
 }
-.resume-select-area {
+.doc-select-list {
   display: flex;
+  flex-direction: column;
   gap: 8px;
-  align-items: center;
 }
-.resume-select-area select {
+.doc-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.doc-type-label {
+  width: 70px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  flex-shrink: 0;
+}
+.doc-select-row select {
   flex: 1;
 }
 .stage-entry-list {
@@ -270,17 +312,17 @@ function handleSubmit() {
   color: #6b7280;
   font-size: 12px;
 }
-.inline-resume-form {
+.inline-doc-form {
   margin-top: 12px;
   padding: 12px;
   background: #f8f9fa;
   border-radius: 6px;
   border: 1px solid #e9ecef;
 }
-.inline-resume-form .form-group {
+.inline-doc-form .form-group {
   margin-bottom: 10px;
 }
-.inline-resume-form label {
+.inline-doc-form label {
   font-size: 13px;
 }
 .error {

@@ -137,16 +137,20 @@ function stageList(stageValue) {
           <div class="timeline-meta">
             <span>{{ stage.date }}</span>
             <span>{{ stage.method }}</span>
-            <a
-              v-if="stage.resume_label && stage.resume_pdf_url"
-              :href="stage.resume_pdf_url"
-              target="_blank"
-              rel="noopener"
-              class="resume-tag resume-link"
-            >
-              {{ stage.resume_label }}
-            </a>
-            <span v-else-if="stage.resume_label" class="resume-tag">{{ stage.resume_label }}</span>
+            <template v-if="stage.documents_detail">
+              <template v-for="doc in stage.documents_detail" :key="doc.id">
+                <a
+                  v-if="doc.pdf_url"
+                  :href="doc.pdf_url"
+                  target="_blank"
+                  rel="noopener"
+                  class="resume-tag resume-link"
+                >
+                  [{{ doc.doc_type }}] {{ doc.label }}
+                </a>
+                <span v-else class="resume-tag">[{{ doc.doc_type }}] {{ doc.label }}</span>
+              </template>
+            </template>
           </div>
           <p v-if="stage.memo" class="timeline-memo">{{ stage.memo }}</p>
           <div class="timeline-actions">

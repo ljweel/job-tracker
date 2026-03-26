@@ -5,7 +5,7 @@
       <div class="nav-links">
         <router-link to="/">대시보드</router-link>
         <router-link to="/companies">회사 관리</router-link>
-        <router-link to="/resumes">이력서 관리</router-link>
+        <router-link to="/resumes">서류 관리</router-link>
       </div>
     </div>
   </nav>

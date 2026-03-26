@@ -2,19 +2,29 @@ from rest_framework import serializers
 from .models import Company, CompanyStage
 
 
+class DocumentInfoSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    doc_type = serializers.CharField()
+    label = serializers.CharField()
+    pdf_url = serializers.SerializerMethodField()
+
+    def get_pdf_url(self, obj):
+        if obj.pdf_file:
+            return obj.pdf_file.url
+        return None
+
+
 class CompanyStageSerializer(serializers.ModelSerializer):
-    resume_label = serializers.CharField(source='resume.label', read_only=True, default=None)
-    resume_pdf_url = serializers.SerializerMethodField()
+    documents_detail = DocumentInfoSerializer(source='documents', many=True, read_only=True)
+    document_ids = serializers.ListField(
+        child=serializers.IntegerField(), write_only=True, required=False, default=list,
+    )
     stage = serializers.JSONField()
 
     class Meta:
         model = CompanyStage
-        fields = ['id', 'stage', 'method', 'date', 'result', 'memo', 'resume', 'resume_label', 'resume_pdf_url']
-
-    def get_resume_pdf_url(self, obj):
-        if obj.resume and obj.resume.pdf_file:
-            return obj.resume.pdf_file.url
-        return None
+        fields = ['id', 'stage', 'method', 'date', 'result', 'memo',
+                  'documents_detail', 'document_ids']
 
     @staticmethod
     def _expand_stage(raw):
@@ -61,6 +71,31 @@ class CompanyStageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f'유효하지 않은 형태입니다: {", ".join(invalid_values)}')
 
         return value
+
+    def validate_document_ids(self, value):
+        if not value:
+            return value
+        from resumes.models import ResumeEvent
+        docs = list(ResumeEvent.objects.filter(id__in=value))
+        if len(docs) != len(value):
+            raise serializers.ValidationError('존재하지 않는 서류가 포함되어 있습니다.')
+        doc_types = [d.doc_type for d in docs]
+        if len(doc_types) != len(set(doc_types)):
+            raise serializers.ValidationError('같은 종류의 서류를 중복 선택할 수 없습니다.')
+        return value
+
+    def create(self, validated_data):
+        document_ids = validated_data.pop('document_ids', [])
+        instance = super().create(validated_data)
+        if document_ids:
+            instance.documents.set(document_ids)
+        return instance
+
+    def update(self, instance, validated_data):
+        document_ids = validated_data.pop('document_ids', [])
+        instance = super().update(instance, validated_data)
+        instance.documents.set(document_ids)
+        return instance
 
 
 class CompanyListSerializer(serializers.ModelSerializer):
