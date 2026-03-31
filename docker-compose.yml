@@ -23,7 +23,7 @@ services:
       DB_HOST: db
       DB_PORT: 5432
     ports:
-      - "8000:8000"
+      - "8001:8001"
     volumes:
       - ./backend:/app
       - /app/__pycache__
